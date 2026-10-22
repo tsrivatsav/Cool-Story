@@ -206,19 +206,23 @@ Response:
                     ┌────────────────┴────────────────┐
                     │                                 │
              p(EOT) >= 0.5                      p(EOT) < 0.5
-                    │                                 │
-
+                    │                                 |
+                  [EOT]                             [HOLD]      
+```
 ---
 
 ## 6. How to Run
 
 ### Prerequisites
 
-Python 3.10+ and the virtual environment at `./venv`.
+Python 3.10+
 
 ### Setup
 
 ```powershell
+# Create virtual environment
+python -m venv .venv
+
 # Activate virtual environment
 .\venv\Scripts\Activate.ps1
 
@@ -302,9 +306,9 @@ docker run -p 8000:8000 turn-detection-engine
        • Close input stream               • Keep listening
        • Dispatch full text to LLM        • Cancel if voice resumes
        • Stream LLM tokens to TTS         • Fallback: trigger after 1200ms
-```
 
-**Integration Steps:**
+
+- **Integration Steps:**
 1. **Audio Ingestion:** Client streams raw PCM 16kHz audio over WebSockets.
 2. **VAD Gating:** Frame-by-frame VAD routes speech to streaming ASR.
 3. **Turn Arbitration:** On 250ms silence, query Turn Detection engine with uncommitted transcript — do not assume completion from VAD alone.
