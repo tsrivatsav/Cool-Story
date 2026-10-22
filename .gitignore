@@ -1,0 +1,4 @@
+INSTRUCTIONS.md
+venv/
+__pycache__/
+turn_detector_model/
