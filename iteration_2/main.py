@@ -12,7 +12,7 @@ from transformers import AutoTokenizer
 
 app = FastAPI(title="Turn Detection Engine v2", version="2.0.0")
 
-MODEL_DIR = "./iteration_2/turn_detector_model"
+MODEL_DIR = "./turn_detector_model"
 tokenizer = None
 ort_session = None
 
