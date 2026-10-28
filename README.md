@@ -17,11 +17,11 @@ Cool-Story/
 │   ├── data/                  # train/val/test JSONL splits
 │   └── turn_detector_model/   # Trained model + ONNX export
 ├── iteration_2/
-│   ├── data_generator2.py     # Enhanced ASR-normalized generator
-│   ├── train2.py              # Model fine-tuning (data → model)
-│   ├── export_onnx2.py        # PyTorch → ONNX export
-│   ├── evaluate2.py           # Model evaluation
-│   ├── main2.py               # FastAPI server (port 8001)
+│   ├── data_generator.py     # Enhanced ASR-normalized generator
+│   ├── train.py              # Model fine-tuning (data → model)
+│   ├── export_onnx.py        # PyTorch → ONNX export
+│   ├── evaluate.py           # Model evaluation
+│   ├── main.py               # FastAPI server (port 8001)
 │   ├── data/                  # train/val/test JSONL splits
 │   └── turn_detector_model/   # Trained model + ONNX export
 ├── stress_test.py             # Async load/stress testing script
