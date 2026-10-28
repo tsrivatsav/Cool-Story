@@ -10,3 +10,4 @@ datasets>=2.14.0
 torch>=2.0.0
 accelerate>=1.1.0
 onnxscript>=0.7.0
+spacy>=3.7.0

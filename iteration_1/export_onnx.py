@@ -1,8 +1,8 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-MODEL_PATH = "./turn_detector_model"
-ONNX_PATH = "./turn_detector_model/model.onnx"
+MODEL_PATH = "./iteration_1/turn_detector_model"
+ONNX_PATH = "./iteration_1/turn_detector_model/model.onnx"
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)

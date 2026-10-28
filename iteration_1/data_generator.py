@@ -90,7 +90,7 @@ def build_dataset(samples_per_class: int = 2500):
         stratify=[d['label'] for d in train_val]
     )
 
-    output_dir = Path("data")
+    output_dir = Path("iteration_1/data")
     output_dir.mkdir(exist_ok=True)
     
     for split_name, split_data in [("train", train), ("val", val), ("test", test)]:

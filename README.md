@@ -8,17 +8,27 @@ A production-ready, low-latency turn detection service that determines whether a
 
 ```
 Cool-Story/
-├── data_generator.py      # Synthetic conversational dataset generation
-├── train.py               # Model fine-tuning (HuggingFace Trainer)
-├── export_onnx.py         # PyTorch → ONNX export for CPU inference
-├── evaluate.py            # Model evaluation on held-out test set
-├── main.py                # FastAPI inference server
-├── stress_test.py         # Async load/stress testing script
-├── requirements.txt       # Python dependencies
-├── Dockerfile             # Container definition
-├── venv/                  # Virtual environment (created locally)
-├── data/                  # Generated train/val/test JSONL splits
-└── turn_detector_model/   # Trained model + ONNX export
+├── iteration_1/
+│   ├── data_generator.py      # Synthetic dataset generation
+│   ├── train.py               # Model fine-tuning
+│   ├── export_onnx.py         # PyTorch → ONNX export
+│   ├── evaluate.py            # Model evaluation
+│   ├── main.py                # FastAPI server (port 8000)
+│   ├── data/                  # train/val/test JSONL splits
+│   └── turn_detector_model/   # Trained model + ONNX export
+├── iteration_2/
+│   ├── data_generator2.py     # Enhanced ASR-normalized generator
+│   ├── train2.py              # Model fine-tuning (data → model)
+│   ├── export_onnx2.py        # PyTorch → ONNX export
+│   ├── evaluate2.py           # Model evaluation
+│   ├── main2.py               # FastAPI server (port 8001)
+│   ├── data/                  # train/val/test JSONL splits
+│   └── turn_detector_model/   # Trained model + ONNX export
+├── stress_test.py             # Async load/stress testing script
+├── requirements.txt           # Python dependencies
+├── Dockerfile                 # Container definition
+├── venv/                      # Virtual environment (created locally)
+└── README.md
 ```
 
 ---
@@ -290,60 +300,107 @@ docker run -p 8000:8000 turn-detection-engine
 | Test F1 (EOT) | 1.00 |
 | Single-item P99 Latency | 36.15 ms |
 | Target Budget | < 100ms ✅ |
-| Stress Test Throughput | 129.53 QPS (25 concurrent) |
-| Stress Test Success Rate | 100% (500/500) |
+| Stress Test Throughput | 129.53 QPS (25 concurrent, Iteration 1 on port 8000) |
+| Stress Test Success Rate | 100% (500/500, Iteration 1) |
+
 
 ---
 
-## 8. Future Work
+## 9. Iteration 2 — Enhanced Data Generator (`data_generator2.py`)
+
+### Motivation
+
+Iteration 1 achieved perfect test metrics (100% accuracy) but suffered from **synthetic overfitting** and **punctuation leakage**:
+* The model could simply learn regex patterns (e.g., trailing `.` or `?` → EOT) rather than true syntactic completeness.
+* Filler words only appeared on incomplete samples, teaching the model "filler = HOLD" — a false heuristic.
+* Random token truncation created accidentally complete slices labeled as incomplete.
+* Only ~40 unique seed sentences meant the model memorized n-grams instead of learning generalization.
+
+### Fixes in Iteration 2
+
+| Issue | Iteration 1 | Iteration 2 |
+|-------|-------------|-------------|
+| **Casing** | Mixed case preserved | All lowercased (raw ASR form) |
+| **Punctuation** | Periods/question marks leaked | All punctuation stripped |
+| **Numbers/symbols** | Left as-is (`$50`, `2`) | Normalized to words (`fifty dollars`, `two`) |
+| **Seed diversity** | ~40 templates | 130+ diverse seeds across 10 conversation categories |
+| **Truncation** | Random token cut (2 to N-1) | spaCy dependency-aware slicing at dangling POS (ADP, CCONJ, SCONJ, DET, PART, AUX) |
+| **Disfluencies** | Fillers only on HOLD class | Fillers, stutters, self-corrections injected into **both** classes |
+| **Output path** | `iteration_1/data/` | `iteration_2/data/` |
+
+### Dataset (Iteration 2)
+
+* **Train:** 4,199 samples | **Val:** 901 | **Test:** 900 | **Total:** 6,000
+* All text lowercased, unpunctuated, numbers/symbols converted to words
+* Syntactic truncation via spaCy (with keyword fallback)
+* Disfluency injection (~35% filler, ~20% stutter, ~10% self-correction) on both classes
+
+### Training & Evaluation Results (Iteration 2)
+
+| Metric | HOLD (Incomplete) | EOT (Complete) |
+|--------|:-----------------:|:--------------:|
+| Precision | 1.00 | 0.9956 |
+| Recall | 0.9956 | 1.00 |
+| F1-Score | 0.9978 | 0.9978 |
+
+> **Note on metrics:** The confusion matrix `[[448, 2], [0, 450]]` shows 2 false positives (HOLD utterances misclassified as EOT). Per-class precision and recall are derived directly from this matrix: HOLD precision = 448/448 = 1.00, HOLD recall = 448/450 ≈ 0.9956, EOT precision = 450/452 ≈ 0.9956, EOT recall = 450/450 = 1.00.
+
+* **Accuracy:** 0.998 (898/900 correct)
+* **Confusion Matrix:** [[448, 2], [0, 450]]
+* **ROC-AUC:** 1.00
+
+### Inference Latency (Single Item, CPU) — Iteration 2
+
+| Metric | Latency |
+|--------|---------|
+| P50 | 9.72 ms |
+| P95 | 13.56 ms |
+| P99 | 15.52 ms |
+
+Compared to Iteration 1 (P99: 36.15 ms), iteration 2 is **2.3× faster** at the tail, driven by optimized sequence length handling and reduced token variance in ASR-normalized strings.
+
+### Stress Testing (HTTP Server)
+
+The `stress_test.py` script now accepts a port argument and uses ASR-normalized (lowercase, unpunctuated) input phrases appropriate for both models:
+
+```powershell
+# Start both servers
+python iteration_1/main.py   # port 8000
+python iteration_2/main2.py  # port 8001
+
+# Stress test Iteration 1 (port 8000)
+python stress_test.py 8000
+
+# Stress test Iteration 2 (port 8001)
+python stress_test.py 8001
+```
+
+The Section 7 stress test results (129.53 QPS, P99: 563.78 ms) were collected against **Iteration 1** on port 8000. These numbers include HTTP round-trip, JSON serialization, and Python/ONNX overhead under 25 concurrent connections — they are not representative of the ONNX model's raw inference latency (P99: 36.15 ms for Iteration 1, 15.52 ms for Iteration 2, measured directly in `evaluate.py`/`evaluate2.py`).
+
+### Running Iteration 2
+
+```powershell
+# 1. Generate enhanced dataset
+python iteration_2/data_generator2.py
+
+# 2. Train model on iteration_2/data/
+python iteration_2/train2.py
+
+# 3. Export to ONNX
+python iteration_2/export_onnx2.py
+
+# 4. Evaluate
+python iteration_2/evaluate2.py
+
+# 5. Start v2 server (port 8001)
+python iteration_2/main2.py
+```
+
+---
+
+## 10. Future Work
 
 - **Multimodal extension:** Add acoustic/prosodic features alongside text for disambiguating intonation.
 - **Streaming Whisper integration:** Replace standalone ASR + turn detection with an encoder-head architecture for end-to-end audio turn detection.
 - **Multilingual support:** Fine-tune `xlm-roberta-base` or `paraphrase-multilingual-MiniLM-L12-v2` for Spanish, French, German.
 - **Online learning:** Deploy shadow-mode canary rollouts with automated failure-case relabeling for continuous improvement.
-                    ▼                                 ▼
-         [Interrupt Turn State]                 [Hold State]
-       • Close input stream               • Keep listening
-       • Dispatch full text to LLM        • Cancel if voice resumes
-       • Stream LLM tokens to TTS         • Fallback: trigger after 1200ms
-
-
-- **Integration Steps:**
-1. **Audio Ingestion:** Client streams raw PCM 16kHz audio over WebSockets.
-2. **VAD Gating:** Frame-by-frame VAD routes speech to streaming ASR.
-3. **Turn Arbitration:** On 250ms silence, query Turn Detection engine with uncommitted transcript — do not assume completion from VAD alone.
-4. **Fast Path:** On `turn_complete=True`, close audio turn and trigger LLM immediately, reducing user-perceived turnaround by 500–800ms vs. fixed-timeout VAD.
-Server startup includes a warm-up inference to initialize ONNX Runtime session and avoid cold-start latency.
-
-### Stress Test Results (`stress_test.py`)
-
-| Metric | Value |
-|--------|-------|
-| Total Requests | 500 |
-| Concurrency | 25 |
-| Successful | 500 |
-| Failed | 0 |
-| Throughput | 129.53 QPS |
-| Latency P50 | 147.01 ms |
-| Latency P95 | 440.66 ms |
-| Latency P99 | 563.78 ms |
-
-*Note: Stress test latency includes HTTP round-trip, JSON serialization, and Python/ONNX overhead under concurrency. Single-item inference latency (measured directly in `evaluate.py`) is P99 = 36.15 ms.*
-### ONNX Export
-
-Exported to ONNX opset 14 with dynamic axes for batch and sequence length. Optimized with `ORT_ENABLE_ALL` graph optimization level and 2 intra-op threads.
-
-### Inference Latency (Single Item, CPU)
-
-| Metric | Latency |
-|--------|---------|
-| P50 | 23.19 ms |
-| P95 | 28.97 ms |
-| P99 | 36.15 ms |
-
-All well within the **<100ms** target budget.
-
-1. **Streaming VAD** detects an acoustic silence threshold (e.g., 200–300ms).
-2. The current partial transcript is dispatched to the Turn Detection API (`POST /predict`).
-3. If the model outputs `EOT`, the system triggers the LLM immediately without waiting for a typical 700–1200ms silence timeout.
-4. If the model outputs `HOLD`, the system waits for the user to resume speaking.

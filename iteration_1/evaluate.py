@@ -8,11 +8,11 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 def run_evaluation():
     """Evaluate the ONNX turn detection model on the held-out test set."""
-    tokenizer = AutoTokenizer.from_pretrained("./turn_detector_model")
-    session = ort.InferenceSession("./turn_detector_model/model.onnx", providers=["CPUExecutionProvider"])
+    tokenizer = AutoTokenizer.from_pretrained("./iteration_1/turn_detector_model")
+    session = ort.InferenceSession("./iteration_1/turn_detector_model/model.onnx", providers=["CPUExecutionProvider"])
 
     texts, true_labels = [], []
-    with open("data/test.jsonl") as f:
+    with open("iteration_1/data/test.jsonl") as f:
         for line in f:
             r = json.loads(line)
             texts.append(r["text"])

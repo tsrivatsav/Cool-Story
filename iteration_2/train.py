@@ -1,3 +1,8 @@
+"""
+Iteration 2 — Model Training (ASR-normalized data)
+Fine-tunes all-MiniLM-L6-v2 on iteration_2/data/ and saves to iteration_2/turn_detector_model/
+"""
+
 import json
 import torch
 import numpy as np
@@ -12,11 +17,11 @@ from transformers import (
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-OUTPUT_DIR = "./turn_detector_model"
+OUTPUT_DIR = "./iteration_2/turn_detector_model"
+DATA_DIR = "./iteration_2/data"
 
 
 def load_jsonl(path):
-    """Load a JSONL file into a HuggingFace Dataset."""
     texts, labels = [], []
     with open(path, "r") as f:
         for line in f:
@@ -27,7 +32,6 @@ def load_jsonl(path):
 
 
 def compute_metrics(pred):
-    """Compute classification metrics for turn detection evaluation."""
     labels = pred.label_ids
     preds = np.argmax(pred.predictions, axis=1)
     probs = torch.softmax(torch.tensor(pred.predictions), dim=1)[:, 1].numpy()
@@ -46,8 +50,8 @@ def compute_metrics(pred):
 
 def main():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    train_ds = load_jsonl("data/train.jsonl")
-    val_ds = load_jsonl("data/val.jsonl")
+    train_ds = load_jsonl(f"{DATA_DIR}/train.jsonl")
+    val_ds = load_jsonl(f"{DATA_DIR}/val.jsonl")
 
     def tokenize_fn(batch):
         return tokenizer(batch["text"], truncation=True, max_length=64)
@@ -85,7 +89,7 @@ def main():
     trainer.train()
     trainer.save_model(OUTPUT_DIR)
     tokenizer.save_pretrained(OUTPUT_DIR)
-    print("Model fine-tuning complete and saved.")
+    print("Iteration-2 model fine-tuning complete and saved.")
 
 
 if __name__ == "__main__":
