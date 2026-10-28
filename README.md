@@ -240,6 +240,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+Navigate into the directory corresponding to your iteration
+```powershell
+cd iteration_2
+```
+
 ### 1. Generate Dataset
 
 ```powershell
@@ -271,8 +276,6 @@ python evaluate.py
 
 ```powershell
 python main.py
-# or with uvicorn directly:
-uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ### 6. Run Stress Test
@@ -376,25 +379,6 @@ python stress_test.py 8001
 ```
 
 The Section 7 stress test results (129.53 QPS, P99: 563.78 ms) were collected against **Iteration 1** on port 8000. These numbers include HTTP round-trip, JSON serialization, and Python/ONNX overhead under 25 concurrent connections — they are not representative of the ONNX model's raw inference latency (P99: 36.15 ms for Iteration 1, 15.52 ms for Iteration 2, measured directly in `evaluate.py`/`evaluate2.py`).
-
-### Running Iteration 2
-
-```powershell
-# 1. Generate enhanced dataset
-python iteration_2/data_generator2.py
-
-# 2. Train model on iteration_2/data/
-python iteration_2/train2.py
-
-# 3. Export to ONNX
-python iteration_2/export_onnx2.py
-
-# 4. Evaluate
-python iteration_2/evaluate2.py
-
-# 5. Start v2 server (port 8001)
-python iteration_2/main2.py
-```
 
 ---
 
